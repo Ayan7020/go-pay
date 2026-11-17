@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: go-pay-postgres
+    environment:
+      POSTGRES_USERNAME: go-pay
+      POSTGRES_PASSWORD: go-pay-password
+      POSTGRES_DB: GO-PAY
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U go-pay"]
+      interval: 10s
+      timeout: 3s
+      retries: 7
+
+  redis:
+    image: redis:8-alpine
+    container_name: go-pay-redis 
+    ports:
+      - "6379:6379"
+
+  nats:
+    image: nats:2.11-alpine
+    container_name: go-pay-nats 
+    command: ["-js","-m","8222"]  # -js: enable jetStream, -m: enable monitoring, {port}: monitoring port
+    ports:
+      - "4222:4222" 
+      - "8222:8222"   
+    
+volumes:
+  pgdata:
