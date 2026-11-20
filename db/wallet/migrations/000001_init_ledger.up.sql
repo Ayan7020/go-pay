@@ -1,6 +1,6 @@
 BEGIN;
 
-Create type entry_direction as ENUM ('debit','creit');
+Create type entry_direction as ENUM ('debit','credit');
 
 -- An account is anything that holds money
 create table accounts (
@@ -39,5 +39,66 @@ create table entries (
 create index entries_transaction_id_idx on entries (transaction_id);
 create index entries_account_id_idx on entries (account_id);
 
+
+create function check_transaction_balance() returns trigger 
+LANGUAGE plpgsql AS $$
+DECLARE
+    tx_id uuid
+begin
+    if TG_TABLE_NAME = 'transactions' THEN
+        tx_id := New.id;
+    else 
+        tx_id := New.transaction_id;
+    end if;
+
+    if not EXISTS (select 1 from entries where transaction_id = tx_id) then 
+        raise EXCEPTION 'transaction %s as no entries', tx_id 
+            using ERRCODE = 'check_violation';
+    end if;
+
+    if exists (
+        select 1 from entries where transaction_id = tx_id
+        group by currency
+        having sum(case direction when 'debit' then amount else -amount end) <> 0
+    ) then 
+        raise EXCEPTION 'transaction %s is not balanced', tx_id 
+            using ERRCODE = 'check_violation';
+    end if;
+
+    return null
+end
+
+
+create CONSTRAINT trigger transaction_balanced
+after insert on transactions
+DEFERRABLE INITIALLY DEFERRED
+for each row execute function check_transaction_balance();
+
+
+CREATE CONSTRAINT TRIGGER entries_balanced
+after insert on entries
+DEFERRABLE INITIALLY DEFERRED
+for each row execute function check_transaction_balance();
+
+create function forbid_ledger_changes() returns TRIGGER
+LANGUAGE PLPGSQL AS $$
+BEGIN
+    RAISE EXCEPTION '% is append-only, post a reversing transaction instead', TG_TABLE_NAME
+        USING ERRCODE = 'restrict_violation';
+END
+
+
+create TRIGGER transaction_append_only 
+after DELETE or UPDATE on transactions
+for each row EXECUTE forbid_ledger_changes();
+
+CREATE TRIGGER entries_append_only
+BEFORE UPDATE OR DELETE ON entries
+FOR EACH ROW EXECUTE FUNCTION forbid_ledger_changes();
+
+create view account_balances as
+select a.id as account_id,a.name,a.currency,
+COALESCE(sum(case when a.normal_balance = e.direction then e.amount else -e.amount end),0)::BIGINT as balance from accounts a left JOIN entries e on e.account_id = a.id
+group by a.id
 
 COMMIT;
