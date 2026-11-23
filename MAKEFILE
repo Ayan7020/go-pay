@@ -1,5 +1,5 @@
 SERVICE ?= wallet
-DB_URL  ?= postgres://go-pay-postgres:go-pay@localhost:5433/$(SERVICE)?sslmode=disable
+DB_URL  ?= postgres://go-pay:go-pay-password@localhost:5433/$(SERVICE)?sslmode=disable
 MIGRATE := migrate -path db/$(SERVICE)/migrations -database "$(DB_URL)"
 
 .PHONY: migrate-up migrate-down migrate-version migrate-new
@@ -19,3 +19,9 @@ ifndef name
 	$(error usage: make migrate-new name=add_something)
 endif
 	migrate create -ext sql -dir db/$(SERVICE)/migrations -seq $(name)
+
+migrate-force:
+ifndef version
+	$(error usage: make migrate-force version=1)
+endif
+	@$(MIGRATE) force -- $(version)
