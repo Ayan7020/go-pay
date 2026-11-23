@@ -15,5 +15,7 @@ migrate-version:
 	@$(MIGRATE) version
 
 migrate-new:
-	@test -n "$(name)" || (echo "usage: make migrate-new name=add_something" && exit 1)
+ifndef name
+	$(error usage: make migrate-new name=add_something)
+endif
 	migrate create -ext sql -dir db/$(SERVICE)/migrations -seq $(name)
