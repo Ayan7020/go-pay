@@ -2,7 +2,7 @@ SERVICE ?= wallet
 DB_URL  ?= postgres://go-pay:go-pay-password@localhost:5433/$(SERVICE)?sslmode=disable
 MIGRATE := migrate -path db/$(SERVICE)/migrations -database "$(DB_URL)"
 
-.PHONY: migrate-up migrate-down migrate-version migrate-new
+.PHONY: migrate-up migrate-down migrate-version migrate-new migrate-force
 
 
 migrate-up:
