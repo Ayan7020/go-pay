@@ -26,7 +26,10 @@ ifndef version
 endif
 	@$(MIGRATE) force -- $(version)
 
-.PHONY: generate
+.PHONY: generate test
 
 generate:
 	@sqlc generate
+
+test:
+	@go test -count=1 $(TESTFLAGS)  ./...
