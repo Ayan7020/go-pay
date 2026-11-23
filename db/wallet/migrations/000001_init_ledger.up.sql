@@ -12,6 +12,7 @@ create table accounts (
     -- normal balance for knowing which side represent the increase (credit or debit)
     normal_balance entry_direction not null,
     created_at timestamptz not null default now(),
+    UNIQUE(id,currency)
 );
 
 create index account_owner_id_idx on accounts (owner_id);
@@ -43,7 +44,7 @@ create index entries_account_id_idx on entries (account_id);
 create function check_transaction_balance() returns trigger 
 LANGUAGE plpgsql AS $$
 DECLARE
-    tx_id uuid
+    tx_id uuid;
 begin
     if TG_TABLE_NAME = 'transactions' THEN
         tx_id := New.id;
@@ -65,8 +66,9 @@ begin
             using ERRCODE = 'check_violation';
     end if;
 
-    return null
-end
+    return null;
+end;
+$$;
 
 
 create CONSTRAINT trigger transaction_balanced
@@ -85,12 +87,13 @@ LANGUAGE PLPGSQL AS $$
 BEGIN
     RAISE EXCEPTION '% is append-only, post a reversing transaction instead', TG_TABLE_NAME
         USING ERRCODE = 'restrict_violation';
-END
+END;
+$$;
 
 
 create TRIGGER transaction_append_only 
 after DELETE or UPDATE on transactions
-for each row EXECUTE forbid_ledger_changes();
+for each row EXECUTE FUNCTION forbid_ledger_changes();
 
 CREATE TRIGGER entries_append_only
 BEFORE UPDATE OR DELETE ON entries
@@ -99,6 +102,6 @@ FOR EACH ROW EXECUTE FUNCTION forbid_ledger_changes();
 create view account_balances as
 select a.id as account_id,a.name,a.currency,
 COALESCE(sum(case when a.normal_balance = e.direction then e.amount else -e.amount end),0)::BIGINT as balance from accounts a left JOIN entries e on e.account_id = a.id
-group by a.id
+group by a.id;
 
 COMMIT;
