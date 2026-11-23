@@ -25,3 +25,8 @@ ifndef version
 	$(error usage: make migrate-force version=1)
 endif
 	@$(MIGRATE) force -- $(version)
+
+.PHONY: generate
+
+generate:
+	@sqlc generate
