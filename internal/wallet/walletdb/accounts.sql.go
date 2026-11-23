@@ -42,3 +42,72 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 	)
 	return i, err
 }
+
+const getAccount = `-- name: GetAccount :one
+SELECT id, owner_id, name, currency, normal_balance, created_at FROM accounts 
+WHERE id = $1
+`
+
+func (q *Queries) GetAccount(ctx context.Context, id uuid.UUID) (Account, error) {
+	row := q.db.QueryRow(ctx, getAccount, id)
+	var i Account
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Name,
+		&i.Currency,
+		&i.NormalBalance,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getAccountBalance = `-- name: GetAccountBalance :one
+select account_id, name, currency, balance from account_balances
+where account_id = $1
+`
+
+func (q *Queries) GetAccountBalance(ctx context.Context, accountID uuid.UUID) (AccountBalance, error) {
+	row := q.db.QueryRow(ctx, getAccountBalance, accountID)
+	var i AccountBalance
+	err := row.Scan(
+		&i.AccountID,
+		&i.Name,
+		&i.Currency,
+		&i.Balance,
+	)
+	return i, err
+}
+
+const listAccountsByOwner = `-- name: ListAccountsByOwner :many
+SELECT id, owner_id, name, currency, normal_balance, created_at FROM accounts 
+WHERE owner_id = $1::uuid
+ORDER BY created_at
+`
+
+func (q *Queries) ListAccountsByOwner(ctx context.Context, ownerID uuid.UUID) ([]Account, error) {
+	rows, err := q.db.Query(ctx, listAccountsByOwner, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Account{}
+	for rows.Next() {
+		var i Account
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.Name,
+			&i.Currency,
+			&i.NormalBalance,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

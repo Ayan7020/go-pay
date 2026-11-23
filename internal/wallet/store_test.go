@@ -1,6 +1,7 @@
 package wallet_test
 
 import (
+	"errors"
 	"os"
 	"testing"
 
@@ -38,8 +39,28 @@ func newAccount(t *testing.T, s *wallet.Store, name string, side wallet.Directio
 	return acc.ID
 }
 
+func balance(t *testing.T, id uuid.UUID) int64 {
+	t.Parallel()
+	s := newStore(t)
+	ab, err := s.Balance(t.Context(), id)
+	if err != nil {
+		t.Fatalf("balance: %v", err)
+	}
+	return ab.Balance
+}
+
 func TestPostTransaction(t *testing.T) {
 	t.Parallel()
 	s := newStore(t)
 	newAccount(t, s, "bank", wallet.Debit)
+}
+
+func TestAccountNotFound(t *testing.T) {
+	t.Parallel()
+	s := newStore(t)
+
+	_, err := s.Account(t.Context(), uuid.New())
+	if !errors.Is(err, wallet.ErrAccountNotFound) {
+		t.Fatalf("got error %v, want ErrAccountNotFound", err)
+	}
 }
