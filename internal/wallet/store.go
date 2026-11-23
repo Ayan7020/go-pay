@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/Ayan7020/go-pay/internal/wallet/walletdb"
 	"github.com/google/uuid"
@@ -16,6 +17,7 @@ type (
 	AccountBalance = walletdb.AccountBalance
 	NewAccount     = walletdb.CreateAccountParams
 	Direction      = walletdb.EntryDirection
+	Entry          = walletdb.Entry
 )
 
 var ErrAccountNotFound = errors.New("wallet: account not found")
@@ -66,3 +68,17 @@ func (s *Store) Balance(ctx context.Context, id uuid.UUID) (AccountBalance, erro
 	return ab, nil
 }
 
+func (s *Store) Entries(ctx context.Context, id uuid.UUID, before int64, limit int32) ([]Entry, error) {
+	if before <= 0 {
+		before = math.MaxInt64
+	}
+	entries, err := s.q.ListEntriesByAccount(ctx, walletdb.ListEntriesByAccountParams{
+		AccountID: id,
+		BeforeID:  before,
+		PageSize:  limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list entries %s: %w", id, err)
+	}
+	return entries, nil
+}
