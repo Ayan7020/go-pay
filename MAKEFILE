@@ -31,5 +31,7 @@ endif
 generate:
 	@sqlc generate
 
+WALLET_TEST_DATABASE_URL ?= postgres://go-pay:go-pay-password@localhost:5433/wallet?sslmode=disable
+export WALLET_TEST_DATABASE_URL
 test:
 	@go test -count=1 $(TESTFLAGS)  ./...
