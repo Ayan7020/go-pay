@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -31,6 +32,9 @@ func main() {
 		Level:   c.LogLevel,
 		Format:  c.LogFormat,
 	})
+
+	slog.SetDefault(logger)
+	logger.Info("starting", "env", c.Env, "log_level", c.LogLevel.String())
 
 	pool, err := postgres.NewPool(context.Background(), c.DatabaseURL, int32(c.DBMaxConns))
 	if err != nil {
