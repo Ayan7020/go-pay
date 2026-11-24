@@ -8,11 +8,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func NewPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
+func NewPool(ctx context.Context, dsn string, maxConn int32) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(dsn)
 
 	cfg.MinConns = 2
-	cfg.MaxConns = 10
+	cfg.MaxConns = maxConn
 
 	cfg.MaxConnLifetime = time.Hour
 	cfg.MaxConnLifetimeJitter = 5 * time.Minute 

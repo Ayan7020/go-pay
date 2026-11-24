@@ -3,25 +3,36 @@ package main
 import (
 	"context"
 	"errors"
-	"log/slog"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/Ayan7020/go-pay/internal/platform/config"
+	"github.com/Ayan7020/go-pay/internal/platform/logging"
 	"github.com/Ayan7020/go-pay/internal/platform/postgres"
 )
 
-func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+var version = "dev"
 
-	dsn := os.Getenv("WALLET_DATABASE_URL")
-	if dsn == "" {
-		dsn = "postgres://go-pay:go-pay-password@localhost:5433/wallet?sslmode=disable"
+func main() {
+
+	c, err := loadConfig(config.New(os.LookupEnv))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "wallet:", err)
+		os.Exit(2)
 	}
 
-	pool, err := postgres.NewPool(context.Background(), dsn)
+	logger := logging.New(os.Stdout, logging.Options{
+		Service: "wallet",
+		Version: version,
+		Level:   c.LogLevel,
+		Format:  c.LogFormat,
+	})
+
+	pool, err := postgres.NewPool(context.Background(), c.DatabaseURL, int32(c.DBMaxConns))
 	if err != nil {
 		logger.Error("connect to postgres", "err", err)
 		os.Exit(1)
@@ -36,7 +47,7 @@ func main() {
 		w.Write([]byte(`{"status":"OK"}` + "\n"))
 	})
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
-		ctx,cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		w.Header().Set("Content-type", "application/json")
 		if err := pool.Ping(ctx); err != nil {

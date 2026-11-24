@@ -35,3 +35,13 @@ WALLET_TEST_DATABASE_URL ?= postgres://go-pay:go-pay-password@localhost:5433/wal
 export WALLET_TEST_DATABASE_URL
 test:
 	@go test -count=1 $(TESTFLAGS)  ./...
+
+
+.PHONY: run-wallet
+
+VERSION ?= $(shell git describe --always --dirty)
+
+run-wallet: export WALLET_DATABASE_URL := $(DB_URL)
+run-wallet:
+	@go build -ldflags "-X main.version=$(VERSION)" -o bin/wallet ./cmd/wallet
+	@./bin/wallet
