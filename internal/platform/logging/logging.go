@@ -21,8 +21,7 @@ func New(w io.Writer, o Options) *slog.Logger {
 		opts.ReplaceAttr = shortTime
 		h = slog.NewTextHandler(w, opts)
 	}
-
-	return slog.New(h).With(
+	return slog.New(&contextHandler{h}).With(
 		slog.String("service", o.Service),
 		slog.String("version", o.Version),
 	)
