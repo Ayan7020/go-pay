@@ -12,6 +12,10 @@ type requestErr struct {
 	msg    string
 }
 
+func (e *requestErr) Error() string {
+    return e.code
+}
+
 func WriteJson(w http.ResponseWriter, r *http.Request, status int, v any) {
 	body, err := json.Marshal(v)
 	if err != nil {
