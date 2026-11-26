@@ -1,15 +1,36 @@
 package apperr
 
-import "errors"
+import (
+	"errors"
+	"maps"
+	"slices"
+	"strings"
+)
 
 var (
-	// ErrNotFound means the requested resource doesn't exist.
 	ErrNotFound = errors.New("not found")
-	// ErrConflict means the request clashes with the current state, such as
-	// creating something that already exists.
 	ErrConflict = errors.New("conflict")
 )
 
 type ValidationError struct {
 	Fields map[string]string
+}
+
+func (v *ValidationError) Add(field, problem string) {
+	if v.Fields == nil {
+		v.Fields = make(map[string]string)
+	}
+	v.Fields[field] = problem
+}
+
+func (v *ValidationError) Err() error {
+	if len(v.Fields) == 0 {
+		return nil
+	}
+	return v
+}
+
+func (e *ValidationError) Error() string {
+	fields := slices.Sorted(maps.Keys(e.Fields))
+	return "invalid input: " + strings.Join(fields, ", ")
 }
