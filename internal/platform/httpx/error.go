@@ -28,9 +28,9 @@ func Classify(err error) (int, string) {
 		return reqErr.status, reqErr.code
 	case errors.As(err, &valErr):
 		return http.StatusUnprocessableEntity, "invalid_input"
-	case errors.As(err, apperr.ErrNotFound):
+	case errors.Is(err, apperr.ErrNotFound):
 		return http.StatusNotFound, "not_found"
-	case errors.As(err, apperr.ErrConflict):
+	case errors.Is(err, apperr.ErrConflict):
 		return http.StatusConflict, "conflict"
 	default:
 		return http.StatusInternalServerError, "internal"
@@ -56,4 +56,8 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, d errorDetai
 	d.RequestID = RequestIDFrom(r.Context())
 	body, _ := json.Marshal(errorBody{Error: d})
 	writeBody(w, status, body)
+}
+
+func NotFound(w http.ResponseWriter, r *http.Request) {
+	Error(w,r,apperr.ErrNotFound)
 }
