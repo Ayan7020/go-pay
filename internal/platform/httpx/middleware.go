@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-type middleware func(http.Handler) http.Handler
+type Middleware func(http.Handler) http.Handler
 
 type statusRecorder struct {
 	http.ResponseWriter
@@ -15,7 +15,7 @@ type statusRecorder struct {
 	bytes  int
 }
 
-func Chain(hh http.Handler, mw ...middleware) http.Handler {
+func Chain(hh http.Handler, mw ...Middleware) http.Handler {
 	h := hh
 	for _, m := range slices.Backward(mw) {
 		h = m(h)
@@ -44,7 +44,7 @@ func (rec *statusRecorder) Unwrap() http.ResponseWriter {
 	return rec.ResponseWriter
 }
 
-func AccessLog(logger *slog.Logger) middleware {
+func AccessLog(logger *slog.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
