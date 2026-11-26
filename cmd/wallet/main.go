@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Ayan7020/go-pay/internal/platform/config"
+	"github.com/Ayan7020/go-pay/internal/platform/httpx"
 	"github.com/Ayan7020/go-pay/internal/platform/logging"
 	"github.com/Ayan7020/go-pay/internal/platform/postgres"
 )
@@ -46,28 +47,31 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		logger.Info("Health check", "remote", r.RemoteAddr)
-		w.Header().Set("Content-type", "application/json")
-		w.Write([]byte(`{"status":"OK"}` + "\n"))
+		logger.InfoContext(r.Context(),"Server Healthy")
+		httpx.WriteJson(w, r, http.StatusOK, map[string]string{"status": "ok"})
 	})
+
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
-		w.Header().Set("Content-type", "application/json")
+
 		if err := pool.Ping(ctx); err != nil {
-			logger.Warn("not ready: database unreachable", "err", err)
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte(`{"status":"unavailable"}` + "\n"))
+			logger.WarnContext(ctx, "not ready: database unreachable", "err", err)
+			httpx.WriteJson(w, r, http.StatusServiceUnavailable, map[string]string{"status": "unavailable"})
 			return
 		}
 		w.Write([]byte(`{"status":"ready"}` + "\n"))
 	})
 
+	mux.HandleFunc("/", httpx.NotFound)
+
 	srv := &http.Server{
-		Addr:              ":8081",
-		Handler:           mux,
+		Addr:              c.HTTPAddr,
+		Handler:           httpx.Chain(mux, httpx.RequestId,httpx.AccessLog(logger)),
 		ReadHeaderTimeout: 5 * time.Second,
+		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelWarn),
 	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 

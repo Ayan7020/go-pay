@@ -43,7 +43,6 @@ func (e *Env) Required(key string) string {
 	if !ok {
 		e.Invalid(key, "required, but not set")
 	}
-	fmt.Println("required: ", v)
 	return v
 }
 
