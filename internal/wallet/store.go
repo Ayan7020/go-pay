@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/Ayan7020/go-pay/internal/platform/apperr"
 	"github.com/Ayan7020/go-pay/internal/wallet/walletdb"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -21,10 +23,14 @@ type (
 )
 
 var ErrAccountNotFound = errors.New("wallet: account not found")
+var ErrAccountExists = fmt.Errorf("%w: account already exists", apperr.ErrConflict)
 
 const (
 	Debit  = walletdb.EntryDirectionDebit
 	Credit = walletdb.EntryDirectionCredit
+
+	KindWallet = walletdb.AccountKindWallet
+	KindSystem = walletdb.AccountKindSystem
 )
 
 type Store struct {
@@ -38,11 +44,29 @@ func NewStore(pool *pgxpool.Pool) *Store {
 
 func (s *Store) CreateAccount(ctx context.Context, a NewAccount) (Account, error) {
 	acc, err := s.q.CreateAccount(ctx, a)
+	if isUniqueViolation(err) {
+		return Account{}, ErrAccountExists
+	}
 	if err != nil {
 		return Account{}, fmt.Errorf("create account: %w", err)
 	}
 
 	return acc, nil
+}
+
+func (s *Store) GetSystemAccount(ctx context.Context, name, currency string) (Account, error) {
+	acc, err := s.q.GetSystemAccount(ctx, walletdb.GetSystemAccountParams{
+		Name:     name,
+		Currency: currency,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Account{}, ErrAccountNotFound
+	}
+
+	if err != nil {
+		return Account{}, fmt.Errorf("get system account %s %s: %w", name, currency, err)
+	}
+	return acc, err
 }
 
 func (s *Store) Account(ctx context.Context, id uuid.UUID) (Account, error) {
@@ -81,4 +105,12 @@ func (s *Store) Entries(ctx context.Context, id uuid.UUID, before int64, limit i
 		return nil, fmt.Errorf("list entries %s: %w", id, err)
 	}
 	return entries, nil
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if ok := errors.As(err, &pgErr); ok {
+		return ok && pgErr.Code == "23505"
+	}
+	return false
 }

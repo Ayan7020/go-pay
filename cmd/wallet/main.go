@@ -15,6 +15,7 @@ import (
 	"github.com/Ayan7020/go-pay/internal/platform/httpx"
 	"github.com/Ayan7020/go-pay/internal/platform/logging"
 	"github.com/Ayan7020/go-pay/internal/platform/postgres"
+	"github.com/Ayan7020/go-pay/internal/wallet"
 )
 
 var version = "dev"
@@ -47,7 +48,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		logger.InfoContext(r.Context(),"Server Healthy")
+		logger.InfoContext(r.Context(), "Server Healthy")
 		httpx.WriteJson(w, r, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
@@ -63,11 +64,14 @@ func main() {
 		w.Write([]byte(`{"status":"ready"}` + "\n"))
 	})
 
+	svc := wallet.NewService(wallet.NewStore(pool))
+	wallet.NewHandler(svc).Register(mux)
+
 	mux.HandleFunc("/", httpx.NotFound)
 
 	srv := &http.Server{
 		Addr:              c.HTTPAddr,
-		Handler:           httpx.Chain(mux, httpx.RequestId,httpx.AccessLog(logger)),
+		Handler:           httpx.Chain(mux, httpx.RequestId, httpx.AccessLog(logger)),
 		ReadHeaderTimeout: 5 * time.Second,
 		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelWarn),
 	}
