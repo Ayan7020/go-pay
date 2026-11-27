@@ -2,6 +2,7 @@ package httpx_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -57,8 +58,34 @@ func newLogger(buf *bytes.Buffer) *slog.Logger {
 }
 
 func TestAccessLog(t *testing.T) {
-	var buf *bytes.Buffer
-	httpx.AccessLog(newLogger(buf))
+	var buf bytes.Buffer
+
+	baseH := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+		w.Write([]byte("short and stout"))
+	})
+
+	h := httpx.AccessLog(newLogger(&buf))(baseH)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/teapot", nil)
+
+	h.ServeHTTP(rec, req)
+
+	var line map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &line); err != nil {
+		t.Fatalf("want one JSON log line, got %q: %v", buf.String(), err)
+	}
+
+	want := map[string]any{
+		"msg": "request", "service": "Test",
+		"method": "GET", "path": "/teapot", "status": 418.0, "bytes": 15.0,
+	}
+	
+	for k,v := range want {
+		if line[k] != v {
+			t.Errorf("log %s = %v, want %v", k, line[k], v)
+		}
+	}
 }
 
 func TestChain(t *testing.T) {
